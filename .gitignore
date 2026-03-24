@@ -1,0 +1,14 @@
+.env
+agents.yaml
+*.pyc
+__pycache__/
+.venv/
+*.egg-info/
+dist/
+build/
+backend.log
+frontend.log
+e2e-chatbot-app-next/
+.bundle/
+.databricks/
+.DS_Store

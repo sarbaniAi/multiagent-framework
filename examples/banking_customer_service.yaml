@@ -1,0 +1,55 @@
+# Example: Banking Customer Service Multi-Agent
+# Copy to agents.yaml and update with your workspace resources
+
+orchestrator:
+  name: "Banking Assistant"
+  model: "databricks-claude-sonnet-4-5"
+  instructions: |
+    You are a banking customer service assistant.
+    Help agents find customer information, check account status,
+    and answer questions about banking products and policies.
+    Never share sensitive data beyond what is necessary.
+    Always cite the source of your information.
+
+subagents:
+  - name: customer_data
+    type: genie
+    space_id: "${GENIE_SPACE_ID}"
+    description: >
+      Query structured banking data: customer profiles, accounts, balances,
+      transactions, loans, and branch information.
+      Use for account lookups, transaction history, and balance inquiries.
+
+  - name: compliance_docs
+    type: vector_search
+    index_name: "${UC_CATALOG}.${UC_SCHEMA}.compliance_index"
+    columns: ["content", "document_name"]
+    num_results: 5
+    description: >
+      Search compliance documents, KYC guidelines, RBI regulations, and internal policies.
+      Use for regulatory questions, policy lookups, and compliance procedures.
+
+  - name: loan_eligibility
+    type: uc_function
+    function: "${UC_CATALOG}.${UC_SCHEMA}.fn_check_loan_eligibility"
+    parameters:
+      - name: customer_id
+        type: string
+      - name: loan_amount
+        type: float
+      - name: tenure_months
+        type: integer
+    description: >
+      Check loan eligibility for a customer. Returns approval status,
+      recommended interest rate, and monthly EMI.
+      Use when customers ask about loan qualification or pre-approval.
+
+  - name: credit_score
+    type: uc_function
+    function: "${UC_CATALOG}.${UC_SCHEMA}.fn_get_credit_score"
+    parameters:
+      - name: customer_id
+        type: string
+    description: >
+      Retrieve customer credit score and risk rating.
+      Use when asked about creditworthiness or risk assessment.

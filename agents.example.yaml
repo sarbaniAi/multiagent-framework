@@ -1,0 +1,92 @@
+# ============================================================================
+# Multi-Agent Framework — Configuration
+#
+# This file defines your entire multi-agent system. Edit this file to
+# configure your orchestrator and subagents. No Python changes needed.
+#
+# Copy this file:  cp agents.example.yaml agents.yaml
+#
+# Supported subagent types:
+#   genie          — Databricks Genie space (structured data via MCP)
+#   vector_search  — Databricks Vector Search index (RAG over documents)
+#   uc_function    — Unity Catalog SQL function (governed business rules)
+#   external_mcp   — External MCP server (HTTP)
+#   custom_mcp     — Custom MCP server (subprocess / stdio)
+#
+# Environment variables can be used with ${VAR_NAME} syntax.
+# ============================================================================
+
+orchestrator:
+  name: "My Assistant"                      # Displayed in the chat UI header
+  model: "databricks-claude-sonnet-4-5"     # Any Databricks FMAPI model
+  instructions: |
+    You are a helpful assistant.
+    Route questions to the most appropriate tool based on the descriptions below.
+    If a query requires multiple tools, call them sequentially and synthesize.
+    If you cannot answer confidently, say so.
+
+subagents:
+
+  # ── Genie: structured data queries ─────────────────────────────────────
+  # Uncomment and configure:
+  #
+  # - name: data_analyst
+  #   type: genie
+  #   space_id: "${GENIE_SPACE_ID}"          # or hardcode the UUID
+  #   description: >
+  #     Query structured data about customers, orders, and transactions.
+  #     Use for questions about specific records, aggregates, or data lookups.
+
+  # ── Vector Search: document RAG ─────────────────────────────────────────
+  #
+  # - name: doc_search
+  #   type: vector_search
+  #   index_name: "my_catalog.my_schema.my_index"
+  #   columns: ["content", "source"]         # columns to return from index
+  #   num_results: 5
+  #   description: >
+  #     Search policy documents, manuals, and guidelines.
+  #     Use for questions about procedures, rules, or textual content.
+
+  # ── UC Function: governed business rules ────────────────────────────────
+  #
+  # - name: check_eligibility
+  #   type: uc_function
+  #   function: "my_catalog.my_schema.fn_check_eligibility"
+  #   parameters:
+  #     - name: customer_id
+  #       type: string
+  #     - name: product_code
+  #       type: string
+  #   description: >
+  #     Check if a customer is eligible for a product.
+  #     Use when asked about eligibility, qualification, or limits.
+
+  # ── External MCP: third-party service ───────────────────────────────────
+  #
+  # - name: crm_lookup
+  #   type: external_mcp
+  #   url: "https://my-crm.example.com/mcp"
+  #   headers:
+  #     Authorization: "Bearer ${CRM_API_TOKEN}"
+  #   description: >
+  #     Query the CRM for customer relationship data.
+  #     Use for contact info, account history, or relationship details.
+
+  # ── Custom MCP: local subprocess ────────────────────────────────────────
+  #
+  # - name: internal_tools
+  #   type: custom_mcp
+  #   command: ["python", "my_mcp_server.py"]
+  #   env:
+  #     API_KEY: "${INTERNAL_API_KEY}"
+  #   description: >
+  #     Internal tooling server for custom operations.
+
+  # ── ADD YOUR SUBAGENTS BELOW ────────────────────────────────────────────
+  # At least one subagent is required. Uncomment an example above or add your own.
+
+  - name: placeholder
+    type: vector_search
+    index_name: "catalog.schema.index"
+    description: "REPLACE THIS with your actual subagent configuration"

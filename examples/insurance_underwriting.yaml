@@ -1,0 +1,54 @@
+# Example: Insurance Underwriting Multi-Agent
+# Copy to agents.yaml and update space_id, index_name, function names
+
+orchestrator:
+  name: "Underwriting Assistant"
+  model: "databricks-claude-sonnet-4-5"
+  instructions: |
+    You are a retail life insurance underwriting assistant.
+    You help analysts explore applications, rules, and policy context.
+    You do NOT make binding underwriting decisions.
+    Always cite which tool you used and the data source.
+
+subagents:
+  - name: underwriting_data
+    type: genie
+    space_id: "${GENIE_SPACE_ID}"
+    description: >
+      Query structured underwriting data: applicant profiles, applications,
+      decisions, products, reason codes, and coverage limits.
+      Use for any question about specific applicants, applications, or aggregates.
+
+  - name: policy_docs
+    type: vector_search
+    index_name: "${UC_CATALOG}.${UC_SCHEMA}.rag_idx"
+    columns: ["content", "source_path"]
+    num_results: 5
+    description: >
+      Search underwriting manuals, policy guidelines, and procedural documents.
+      Use for questions about policies, exclusions, medical requirements, or procedures.
+
+  - name: max_sum_assured
+    type: uc_function
+    function: "${UC_CATALOG}.${UC_SCHEMA}.fn_max_sum_assured_inr"
+    parameters:
+      - name: product_id
+        type: string
+      - name: age_years
+        type: integer
+    description: >
+      Check the maximum sum assured for a product and applicant age.
+      Use when asked about coverage limits or maximum insurable amounts.
+
+  - name: risk_tier
+    type: uc_function
+    function: "${UC_CATALOG}.${UC_SCHEMA}.fn_risk_tier"
+    parameters:
+      - name: bmi_bucket
+        type: string
+      - name: smoker_status
+        type: string
+    description: >
+      Determine risk tier based on BMI bucket and smoking status.
+      bmi_bucket: underweight/normal/overweight/obese.
+      smoker_status: never/former/current.

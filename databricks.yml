@@ -1,0 +1,44 @@
+bundle:
+  name: multiagent_framework
+
+resources:
+  apps:
+    multiagent_app:
+      name: "multiagent-app"                       # CHANGE: your app name
+      description: "Multi-agent assistant powered by Databricks"
+      source_code_path: ./
+      config:
+        command: ["uvicorn", "agent_server.start_server:app", "--host", "0.0.0.0", "--port", "8000"]
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: "databricks"
+          - name: MLFLOW_REGISTRY_URI
+            value: "databricks-uc"
+          - name: MLFLOW_EXPERIMENT_ID
+            value_from: "experiment"
+          - name: DATABRICKS_WAREHOUSE_ID
+            value: ""                              # CHANGE: your warehouse ID
+          - name: COMPANY_NAME
+            value: "Multi-Agent Assistant"         # CHANGE: your company/app name
+
+      resources:
+        - name: "experiment"
+          experiment:
+            experiment_id: ""                      # CHANGE: your MLflow experiment ID
+            permission: "CAN_MANAGE"
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://your-workspace.cloud.databricks.com  # CHANGE
+
+  prod:
+    mode: production
+    workspace:
+      host: https://your-workspace.cloud.databricks.com  # CHANGE
+    resources:
+      apps:
+        multiagent_app:
+          name: multiagent-app

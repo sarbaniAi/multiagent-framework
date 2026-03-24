@@ -1,0 +1,20 @@
+command: ["uvicorn", "agent_server.start_server:app", "--host", "0.0.0.0", "--port", "8000"]
+
+env:
+  - name: MLFLOW_TRACKING_URI
+    value: "databricks"
+  - name: MLFLOW_REGISTRY_URI
+    value: "databricks-uc"
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: ""                              # CHANGE: your warehouse ID
+  - name: MLFLOW_EXPERIMENT_ID
+    value: ""                              # CHANGE: your experiment ID
+  - name: COMPANY_NAME
+    value: "Multi-Agent Assistant"         # CHANGE: your company/app name
+  # Add any env vars referenced in agents.yaml:
+  # - name: GENIE_SPACE_ID
+  #   value: ""
+  # - name: UC_CATALOG
+  #   value: ""
+  # - name: UC_SCHEMA
+  #   value: ""

@@ -1,0 +1,10 @@
+uv
+fastapi>=0.129.0
+uvicorn>=0.41.0
+databricks-openai>=0.13.0
+databricks-agents>=1.9.3
+databricks-sdk>=0.40.0
+mlflow>=3.10.0
+openai-agents>=0.4.1
+python-dotenv>=1.2.1
+pyyaml>=6.0
