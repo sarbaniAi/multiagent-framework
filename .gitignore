@@ -1,5 +1,4 @@
 .env
-agents.yaml
 *.pyc
 __pycache__/
 .venv/
