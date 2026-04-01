@@ -38,7 +38,7 @@ from agent_server.tools.vector_search import build_vector_search_tool
 from agent_server.tools.uc_function import build_uc_function_tool
 from agent_server.tools.external_mcp import build_external_mcp
 from agent_server.tools.custom_mcp import build_custom_mcp
-from agent_server.utils import get_session_id, process_agent_stream_events
+from agent_server.utils import get_session_id, process_agent_stream_events, set_request_ws_client
 
 # ---------------------------------------------------------------------------
 # Client setup
@@ -148,6 +148,7 @@ def create_orchestrator(mcp_servers: list) -> Agent:
 
 @invoke()
 async def invoke_handler(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+    set_request_ws_client()  # Set per-user WorkspaceClient for this request
     if session_id := get_session_id(request):
         mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
 
@@ -167,6 +168,7 @@ async def invoke_handler(request: ResponsesAgentRequest) -> ResponsesAgentRespon
 
 @stream()
 async def stream_handler(request: ResponsesAgentRequest) -> AsyncGenerator[ResponsesAgentStreamEvent, None]:
+    set_request_ws_client()  # Set per-user WorkspaceClient for this request
     if session_id := get_session_id(request):
         mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
 

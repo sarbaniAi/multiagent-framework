@@ -1,3 +1,8 @@
+import json
+import logging
+import os
+import time
+from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -19,10 +24,50 @@ except Exception:
     pass  # Not a git repo in deployed app — safe to skip
 
 # ---------------------------------------------------------------------------
+# Rate limiting — lightweight ASGI middleware (no starlette dependency)
+# ---------------------------------------------------------------------------
+
+from fastapi.responses import HTMLResponse
+
+logger = logging.getLogger(__name__)
+
+RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX_REQUESTS", "30"))
+RATE_LIMIT_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "60"))
+
+_rate_limit_store: dict[str, list[float]] = defaultdict(list)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request, call_next):
+    """Per-user rate limiting on /invocations endpoint."""
+    if request.url.path != "/invocations":
+        return await call_next(request)
+
+    # Identify user by forwarded email (from Databricks App proxy) or IP
+    user_key = (
+        request.headers.get("x-forwarded-user-email", "")
+        or (request.client.host if request.client else "unknown")
+    )
+    now = time.time()
+    cutoff = now - RATE_LIMIT_WINDOW
+
+    # Clean old entries
+    _rate_limit_store[user_key] = [t for t in _rate_limit_store[user_key] if t > cutoff]
+
+    if len(_rate_limit_store[user_key]) >= RATE_LIMIT_MAX:
+        logger.warning("Rate limit exceeded for user: %s", user_key)
+        from starlette.responses import JSONResponse
+        return JSONResponse(
+            status_code=429,
+            content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s."},
+        )
+
+    _rate_limit_store[user_key].append(now)
+    return await call_next(request)
+
+# ---------------------------------------------------------------------------
 # Built-in Chat UI — served at GET /
 # ---------------------------------------------------------------------------
-import os
-from fastapi.responses import HTMLResponse
 
 COMPANY_NAME = os.environ.get("COMPANY_NAME", "Multi-Agent Assistant")
 
@@ -32,6 +77,7 @@ CHAT_HTML = """<!DOCTYPE html>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>""" + COMPANY_NAME + """</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0e0e10;color:#e8e8e8;height:100vh;display:flex;flex-direction:column}
@@ -84,7 +130,7 @@ marked.setOptions({breaks:true,gfm:true});
 const chat=document.getElementById('chat'),input=document.getElementById('input'),btn=document.getElementById('btn');
 function addMsg(role,content,isHtml){
   const d=document.createElement('div');d.className='msg '+role;
-  if(isHtml)d.innerHTML=content;else d.textContent=content;
+  if(isHtml)d.innerHTML=DOMPurify.sanitize(content);else d.textContent=content;
   chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d;
 }
 async function send(){
@@ -103,7 +149,7 @@ async function send(){
       if(typeof c==='string'&&c)text+=c;
       else if(Array.isArray(c))for(const x of c){if(x.text)text+=x.text;}
     }
-    t.innerHTML=marked.parse(text||JSON.stringify(d.output,null,2));
+    t.innerHTML=DOMPurify.sanitize(marked.parse(text||JSON.stringify(d.output,null,2)));
   }catch(e){t.classList.remove('typing');t.textContent='Error: '+e.message;t.classList.add('error');}
   btn.disabled=false;input.focus();
 }

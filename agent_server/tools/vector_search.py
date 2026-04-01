@@ -1,17 +1,16 @@
-"""Vector Search RAG subagent — searches a Databricks Vector Search index."""
+"""Vector Search RAG subagent — searches a Databricks Vector Search index.
+
+Security:
+  - Raw exceptions are logged server-side, never exposed to the user.
+"""
+
+import logging
 
 from agents import function_tool
-from databricks.sdk import WorkspaceClient
 
+from agent_server.utils import get_request_ws_client
 
-_ws = None
-
-
-def _get_ws() -> WorkspaceClient:
-    global _ws
-    if _ws is None:
-        _ws = WorkspaceClient()
-    return _ws
+logger = logging.getLogger(__name__)
 
 
 def build_vector_search_tool(config: dict):
@@ -34,7 +33,7 @@ def build_vector_search_tool(config: dict):
 
     async def _search(query: str) -> str:
         try:
-            result = _get_ws().vector_search_indexes.query_index(
+            result = get_request_ws_client().vector_search_indexes.query_index(
                 index_name=index_name,
                 query_text=query,
                 columns=columns,
@@ -58,7 +57,8 @@ def build_vector_search_tool(config: dict):
             src = ", ".join(sources) if sources else "knowledge base"
             return f"Sources: {src}\n\n{context}"
         except Exception as e:
-            return f"Vector search error: {e}"
+            logger.exception("Vector search error for index '%s': %s", index_name, e)
+            return "Document search is temporarily unavailable. Please try again."
 
     _search.__name__ = tool_name
     _search.__doc__ = description
