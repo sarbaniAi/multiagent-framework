@@ -389,7 +389,7 @@ def create_vs_index(
                     embedding_source_columns=[
                         EmbeddingSourceColumn(
                             name="content",
-                            embedding_model_endpoint_name=embedding_model,
+                            model_endpoint_name=embedding_model,
                         )
                     ],
                 ),
