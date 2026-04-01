@@ -360,12 +360,28 @@ def create_vs_index(
     w, endpoint_name: str, index_name: str, table_name: str, embedding_model: str
 ) -> None:
     """Create a Delta Sync VS index. Wait for ONLINE."""
+    import inspect
     from databricks.sdk.service.vectorsearch import (
         DeltaSyncVectorIndexSpecRequest,
         EmbeddingSourceColumn,
         PipelineType,
         VectorIndexType,
     )
+
+    def _build_embedding_source_column(col_name: str, model: str) -> EmbeddingSourceColumn:
+        """Build EmbeddingSourceColumn with SDK-version-safe field name."""
+        sig = inspect.signature(EmbeddingSourceColumn.__init__)
+        params = sig.parameters
+        if "embedding_model_endpoint_name" in params:
+            return EmbeddingSourceColumn(name=col_name, embedding_model_endpoint_name=model)
+        elif "model_endpoint_name" in params:
+            return EmbeddingSourceColumn(name=col_name, model_endpoint_name=model)
+        else:
+            # Fallback: try both, catch what works
+            try:
+                return EmbeddingSourceColumn(name=col_name, embedding_model_endpoint_name=model)
+            except TypeError:
+                return EmbeddingSourceColumn(name=col_name, model_endpoint_name=model)
 
     # Check if it already exists
     try:
@@ -387,10 +403,7 @@ def create_vs_index(
                     source_table=table_name,
                     pipeline_type=PipelineType.TRIGGERED,
                     embedding_source_columns=[
-                        EmbeddingSourceColumn(
-                            name="content",
-                            model_endpoint_name=embedding_model,
-                        )
+                        _build_embedding_source_column("content", embedding_model)
                     ],
                 ),
             )
