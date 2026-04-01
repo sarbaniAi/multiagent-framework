@@ -359,29 +359,12 @@ def ensure_vs_endpoint(w, endpoint_name: str) -> None:
 def create_vs_index(
     w, endpoint_name: str, index_name: str, table_name: str, embedding_model: str
 ) -> None:
-    """Create a Delta Sync VS index. Wait for ONLINE."""
-    import inspect
-    from databricks.sdk.service.vectorsearch import (
-        DeltaSyncVectorIndexSpecRequest,
-        EmbeddingSourceColumn,
-        PipelineType,
-        VectorIndexType,
-    )
+    """Create a Delta Sync VS index. Wait for ONLINE.
 
-    def _build_embedding_source_column(col_name: str, model: str) -> EmbeddingSourceColumn:
-        """Build EmbeddingSourceColumn with SDK-version-safe field name."""
-        sig = inspect.signature(EmbeddingSourceColumn.__init__)
-        params = sig.parameters
-        if "embedding_model_endpoint_name" in params:
-            return EmbeddingSourceColumn(name=col_name, embedding_model_endpoint_name=model)
-        elif "model_endpoint_name" in params:
-            return EmbeddingSourceColumn(name=col_name, model_endpoint_name=model)
-        else:
-            # Fallback: try both, catch what works
-            try:
-                return EmbeddingSourceColumn(name=col_name, embedding_model_endpoint_name=model)
-            except TypeError:
-                return EmbeddingSourceColumn(name=col_name, model_endpoint_name=model)
+    Uses the REST API directly to avoid SDK version incompatibilities
+    with EmbeddingSourceColumn field naming across databricks-sdk versions.
+    """
+    import requests
 
     # Check if it already exists
     try:
@@ -394,25 +377,36 @@ def create_vs_index(
     except Exception:
         print_step(f"  Creating Delta Sync index '{index_name}'...")
         try:
-            w.vector_search_indexes.create_index(
-                name=index_name,
-                endpoint_name=endpoint_name,
-                primary_key="id",
-                index_type=VectorIndexType.DELTA_SYNC,
-                delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
-                    source_table=table_name,
-                    pipeline_type=PipelineType.TRIGGERED,
-                    embedding_source_columns=[
-                        _build_embedding_source_column("content", embedding_model)
-                    ],
-                ),
+            host = w.config.host.rstrip("/")
+            token = w.config.token
+            resp = requests.post(
+                f"{host}/api/2.0/vector-search/indexes",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "name": index_name,
+                    "endpoint_name": endpoint_name,
+                    "primary_key": "id",
+                    "index_type": "DELTA_SYNC",
+                    "delta_sync_index_spec": {
+                        "source_table": table_name,
+                        "pipeline_type": "TRIGGERED",
+                        "embedding_source_columns": [
+                            {
+                                "name": "content",
+                                "embedding_model_endpoint_name": embedding_model,
+                            }
+                        ],
+                    },
+                },
             )
-        except Exception as e:
-            if "already exists" in str(e).lower():
-                pass
-            else:
-                print_error(f"Cannot create index: {e}")
-                sys.exit(1)
+            if resp.status_code not in (200, 201):
+                error = resp.json().get("message", resp.text)
+                if "already exists" not in error.lower():
+                    print_error(f"Cannot create index: {error}")
+                    sys.exit(1)
+        except requests.exceptions.RequestException as e:
+            print_error(f"Cannot create index: {e}")
+            sys.exit(1)
 
     # Poll until ONLINE (max 30 minutes)
     for attempt in range(60):
